@@ -102,27 +102,21 @@ Input (Low-light Image)
 ## Folder Structure
 
 ```
-optifusionnet/
+IPD_OPTIFUSIONNET/
 ├── notebooks/
-│   └── OptifusionNet.ipynb       # Original Colab notebook (source of truth)
-├── src/
-│   ├── model.py                  # OptiFusionNet, ConvBlock, ResidualDenoiseBlock, UpAddBlock
-│   ├── dataset.py                # LOLDataset, NoGroundTruthDataset, prepare_dataloaders
-│   ├── loss.py                   # HybridLoss, gradient_loss
-│   ├── meta_opt.py               # PSO, ACO, Particle, make_objective
-│   ├── train.py                  # multistage_train, train_one_epoch, eval_one_epoch
-│   └── inference.py              # enhance_folder, NoGroundTruthDataset inference loop
+│   └── OptifusionNet.ipynb       # Full Colab notebook — training, eval & inference
 ├── configs/
 │   └── config.yaml               # All tuneable hyperparameters
 ├── data/
 │   └── README.md                 # Dataset download & setup instructions
 ├── checkpoints/                  # Saved model weights (git-ignored)
 ├── results/                      # Enhanced output images (git-ignored)
-├── requirements.txt
-├── setup.sh
+├── requirements.txt              # Python dependencies
+├── setup.sh                      # One-shot environment setup script
 ├── .gitignore
 ├── CONTRIBUTING.md
-└── LICENSE
+├── LICENSE
+└── README.md
 ```
 
 ---
