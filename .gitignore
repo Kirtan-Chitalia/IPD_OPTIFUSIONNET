@@ -1,0 +1,27 @@
+Python
+    __pycache__/
+    *.pyc
+    *.pyo
+    *.pyd
+    .Python
+    env/
+    venv/
+    *.env
+    .venv
+
+    # Jupyter/Colab
+    .ipynb_checkpoints
+
+    # PyTorch
+    *.pth
+    *.pt
+
+    # Datasets
+    DATA/
+    opti_results/
+
+    # Logs and other generated files
+    *.log
+    nohup.out
+    output/
+    results/
