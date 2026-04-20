@@ -264,13 +264,3 @@ save_path: "checkpoints/optifusionnet_multistage_best.pth"
 - **Better SSIM implementation** — the current SSIM is per-sample rather than batched; a batched version would be faster.
 
 ---
-
-## Contributing
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request.
-
----
-
-## License
-
-This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
