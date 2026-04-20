@@ -1,129 +1,282 @@
-# OptifusionNet
+# OptiFusionNet
 
-OptiFusionNet is a deep learning model designed for image enhancement using a two-resolution training strategy to achieve both speed and high quality. It combines meta-optimization techniques (PSO and ACO) for efficient hyperparameter search with a multi-stage training pipeline (fast Adam pre-training, high-quality Adam training, and final SGD fine-tuning).
 
-## Features
-- **Two-Resolution Training**: Starts with a fast, lower-resolution training stage and transitions to a high-quality, higher-resolution stage.
-- **Meta-Optimization**: Utilizes Particle Swarm Optimization (PSO) and Ant Colony Optimization (ACO) to find optimal learning rates, momentum, and weight decay.
-- **Hybrid Loss Function**: Combines L1 loss with a gradient loss component for improved image quality.
-- **Residual Denoise Blocks**: Incorporates residual denoise blocks for effective noise reduction and feature learning.
-- **Flexible Dataset Handling**: Supports various image formats (PNG, JPG, JPEG, TIFF).
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?logo=PyTorch&logoColor=white)](https://pytorch.org/)
 
-## Getting Started
+**OptiFusionNet** is a deep learning model for **low-light image enhancement** using a novel two-resolution training strategy that combines meta-optimization (PSO + ACO) with a multi-stage training pipeline for superior image quality.
+
+---
+
+## Table of Contents
+
+- [Problem Statement](#problem-statement)
+- [Architecture](#architecture)
+- [Folder Structure](#folder-structure)
+- [Setup & Installation](#setup--installation)
+- [Dataset](#dataset)
+- [Usage](#usage)
+  - [Training](#training)
+  - [Inference](#inference)
+  - [Evaluation](#evaluation)
+- [Configuration](#configuration)
+- [Results](#results)
+- [Future Improvements](#future-improvements)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Problem Statement
+
+Low-light images suffer from poor visibility, excessive noise, and color distortion. Traditional enhancement methods often fail to generalise across different lighting conditions or produce visually pleasant results. OptiFusionNet addresses this by:
+
+1. **Automatically tuning hyperparameters** using bio-inspired meta-optimizers (PSO + ACO) so the model adapts to the dataset without manual trial-and-error.
+2. **Training in two resolutions** — a fast 128×128 pretraining stage for speed, followed by a high-quality 256×256 stage for fidelity.
+3. **Combining residual denoising blocks with additive skip connections** to simultaneously suppress noise and restore structure.
+
+---
+
+## Architecture
+
+OptiFusionNet is a **U-Net-style encoder-decoder** with the following key components:
+
+```
+Input (Low-light Image)
+        │
+    ┌───▼───┐
+    │ Enc-1 │  ConvBlock  → 64  ch
+    └───┬───┘
+    ┌───▼───┐
+    │ Enc-2 │  MaxPool + ConvBlock → 128 ch
+    └───┬───┘
+    ┌───▼───┐
+    │ Enc-3 │  MaxPool + ConvBlock → 256 ch
+    └───┬───┘
+    ┌───▼───┐
+    │ Enc-4 │  MaxPool + ConvBlock → 512 ch
+    └───┬───┘
+    ┌───▼───┐
+    │Bottlnk│  ConvBlock + 3×ResidualDenoiseBlock (512 ch)
+    └───┬───┘
+    ┌───▼───┐
+    │ Dec-3 │  UpAddBlock + ResidualDenoiseBlock → 256 ch
+    └───┬───┘
+    ┌───▼───┐
+    │ Dec-2 │  UpAddBlock + ResidualDenoiseBlock → 128 ch
+    └───┬───┘
+    ┌───▼───┐
+    │ Dec-1 │  UpAddBlock + ResidualDenoiseBlock → 64  ch
+    └───┬───┘
+    ┌───▼───┐
+    │ Fuse  │  Additive fusion with Enc-1 skip, FusionConv
+    └───┬───┘
+    ┌───▼───┐
+    │Refiner│  ResidualDenoiseBlock → Residual add → clamp(0,1)
+    └───────┘
+      Output (Enhanced Image)
+```
+
+### Key Modules
+
+| Module | Description |
+|---|---|
+| `ConvBlock` | Conv2D → BN → ReLU |
+| `ResidualDenoiseBlock` | Identity-shortcut residual block for denoising |
+| `UpAddBlock` | Bilinear upsample + additive skip-connection fusion |
+| `HybridLoss` | L1 + gradient loss for perceptual sharpness |
+| `PSO` | Particle Swarm Optimization for hyperparameter search |
+| `ACO` | Ant Colony Optimization for hyperparameter search |
+
+### Multi-Stage Training Pipeline
+
+| Stage | Resolution | Optimizer | Purpose |
+|---|---|---|---|
+| 0 — Meta-opt | 128×128 (subset) | PSO + ACO | Find optimal lr / momentum / weight decay |
+| 1 — Fast Pretrain | 128×128 | Adam | Quick convergence from scratch |
+| 2 — HQ Adam | 256×256 | Adam (halved lr) | High-quality feature learning |
+| 3 — SGD Fine-tune | 256×256 | SGD (momentum) | Final polishing with meta-opt momentum |
+
+---
+
+## Folder Structure
+
+```
+optifusionnet/
+├── notebooks/
+│   └── OptifusionNet.ipynb       # Original Colab notebook (source of truth)
+├── src/
+│   ├── model.py                  # OptiFusionNet, ConvBlock, ResidualDenoiseBlock, UpAddBlock
+│   ├── dataset.py                # LOLDataset, NoGroundTruthDataset, prepare_dataloaders
+│   ├── loss.py                   # HybridLoss, gradient_loss
+│   ├── meta_opt.py               # PSO, ACO, Particle, make_objective
+│   ├── train.py                  # multistage_train, train_one_epoch, eval_one_epoch
+│   └── inference.py              # enhance_folder, NoGroundTruthDataset inference loop
+├── configs/
+│   └── config.yaml               # All tuneable hyperparameters
+├── data/
+│   └── README.md                 # Dataset download & setup instructions
+├── checkpoints/                  # Saved model weights (git-ignored)
+├── results/                      # Enhanced output images (git-ignored)
+├── requirements.txt
+├── setup.sh
+├── .gitignore
+├── CONTRIBUTING.md
+└── LICENSE
+```
+
+---
+
+## Setup & Installation
 
 ### Prerequisites
-- Google Colab environment (recommended for GPU access)
-- Google Drive mounted to `/content/drive` for data and model storage.
+
 - Python 3.8+
-- `pip` package manager
+- CUDA-capable GPU (strongly recommended; CPU is supported but very slow)
+- `pip` or `conda`
 
-### Installation
-
-To set up your environment, run the following commands in your Colab notebook or terminal:
+### Quick Start
 
 ```bash
-!pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-!pip install numpy scikit-image pillow tqdm opencv-python imquality piq
+# 1. Clone the repository
+git clone https://github.com/<your-username>/OptiFusionNet.git
+cd OptiFusionNet
+
+# 2. Install dependencies (CUDA 11.8 example — adjust for your CUDA version)
+bash setup.sh
+
+# Or manually:
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install -r requirements.txt
 ```
 
-### Data Setup
+---
 
-Ensure your training data is organized in directories specified in the `CONFIG` dictionary. The `LOLDataset` expects paired low/high resolution images in separate directories, or a single directory for unpaired images with specific transformations.
+## Dataset
 
-Example data directory structure for paired images:
+OptiFusionNet has been evaluated on:
 
-```
-/content/drive/MyDrive/IPD/DATA/Train data/
-├── lol_dataset/
-│   ├── eval15/
-│   │   ├── low/
-│   │   └── high/
-├── isro_data/
-```
+- **LOL Dataset** — paired low/high-light images (`eval15` split for quick experiments, `our485` split for full training).
+- **Custom ISRO PSR images** — unpaired dark images from planetary surface data.
 
-Update the `CONFIG` dictionary in the main script (`optifusionnet_res_multistage.py`) to point to your data directories:
+See [`data/README.md`](data/README.md) for download links and the expected directory layout.
 
-```python
-CONFIG = {
-    "low_dir": "/content/drive/MyDrive/IPD/DATA/Train data/lol_dataset/eval15/low",
-    "high_dir": "/content/drive/MyDrive/IPD/DATA/Train data/lol_dataset/eval15/high",
-    # ... other configurations
-}
-```
+Update `configs/config.yaml` (or the `CONFIG` dict in the notebook) to point to your local dataset paths before training.
 
-For the modified `LOLDataset` that takes a single source directory, the config would be:
-
-```python
-CONFIG = {
-    "image_source_dir": "/content/drive/MyDrive/IPD/isro_data",
-    # ... other configurations
-}
-```
+---
 
 ## Usage
 
-### Training the Model
+### Training
 
-Run the `multistage_train()` function in the `optifusionnet_res_multistage.py` script. This will execute the entire multi-stage training pipeline, including meta-optimization and saving the best model checkpoint.
+```bash
+# Using the notebook (recommended for Colab)
+jupyter notebook notebooks/OptifusionNet.ipynb
 
-```python
-if __name__ == "__main__":
-    start = time.time()
-    trained_model = multistage_train()
-    print("Total elapsed:", time.time()-start)
+# Using the Python scripts (local GPU)
+python src/train.py --config configs/config.yaml
 ```
 
-### Running Inference
+The training script will:
+1. Run PSO + ACO meta-optimization on a small subset.
+2. Perform fast Adam pretraining at 128×128.
+3. Continue training at 256×256 with Adam.
+4. Fine-tune with SGD using the meta-optimized momentum.
+5. Save the best checkpoint to `checkpoints/optifusionnet_multistage_best.pth`.
 
-To enhance images using a trained model, use the `enhance_folder` function. Specify the path to your trained model, the input folder containing images to enhance, and an output folder for the enhanced images.
-
-```python
-MODEL_PATH = "optifusionnet_multistage_best.pth" # Path to your trained model
-INPUT_FOLDER = "/content/drive/MyDrive/IPD/DATA/test/comtestSN" # Folder with images to enhance
-OUTPUT_FOLDER = "/content/drive/MyDrive/IPD/opti_results" # Folder to save enhanced images
-
-enhance_folder(MODEL_PATH, INPUT_FOLDER, OUTPUT_FOLDER)
-```
-
-### Visualizing Training Metrics
-
-After training, you can plot the training and validation metrics (loss, PSNR, SSIM) using the provided plotting code.
+### Inference
 
 ```python
-import matplotlib.pyplot as plt
+from src.inference import enhance_folder
 
-# ... (assuming training_history and CONFIG are available from multistage_train output)
-
-plt.figure(figsize=(18, 6))
-# ... (plotting code from notebook)
-plt.show()
+enhance_folder(
+    model_path="checkpoints/optifusionnet_multistage_best.pth",
+    input_folder="data/test/low",
+    output_folder="results/enhanced",
+)
 ```
 
-### Evaluating Model with Quality Metrics
+Or run the standalone inference script:
 
-The notebook also includes code to evaluate the enhanced images using PSNR, SSIM, and BRISQUE metrics. This requires `scikit-image`, `imquality`, and `piq`.
-
-```python
-# ... (model loading and setup)
-
-TEST_DIR = "/content/drive/MyDrive/IPD/DATA/test/comtestSN"
-SAVE_DIR = "/content/drive/MyDrive/IPD/opti_results"
-os.makedirs(SAVE_DIR, exist_ok=True)
-
-# ... (test_dataset, test_loader setup)
-
-# Inference loop with metric calculation and overlay on images
-# ... (code from notebook's inference section)
+```bash
+python src/inference.py \
+    --model checkpoints/optifusionnet_multistage_best.pth \
+    --input  data/test/low \
+    --output results/enhanced
 ```
+
+### Evaluation
+
+The notebook includes full evaluation with PSNR, SSIM, and BRISQUE metrics, plus side-by-side visualisation of input vs. enhanced images.
+
+---
 
 ## Configuration
 
-The `CONFIG` dictionary at the beginning of the script controls various aspects of the training process, including:
-- `low_dir`, `high_dir` (or `image_source_dir`): Dataset paths.
-- `fast_size`, `hq_size`: Image resolutions for different training stages.
-- `fast_adam_epochs`, `hq_adam_epochs`, `sgd_epochs`: Number of epochs for each training stage.
-- `batch_size_fast`, `batch_size_hq`: Batch sizes.
-- Meta-optimization parameters (`pso_iters`, `aco_iters`, etc.).
-- `device`: 'cuda' or 'cpu'.
-- `seed`: For reproducibility.
-- `save_path`: Path to save the best model.
+All hyperparameters live in `configs/config.yaml`:
+
+```yaml
+# Dataset
+low_dir:  "data/lol_dataset/our485/low"
+high_dir: "data/lol_dataset/our485/high"
+
+# Resolutions
+fast_size: 128
+hq_size:   256
+
+# Training schedule
+fast_adam_epochs: 6
+hq_adam_epochs:   20
+sgd_epochs:       8
+batch_size_fast:  12
+batch_size_hq:    8
+
+# Meta-optimization
+use_meta_opt:   true
+meta_subset:    300
+pso_iters:      5
+pso_particles:  6
+pso_eval_epochs: 1
+aco_iters:      3
+aco_ants:       6
+
+# Misc
+seed:      42
+save_path: "checkpoints/optifusionnet_multistage_best.pth"
+```
+
+---
+
+## Results
+
+| Dataset | PSNR (dB) | SSIM |
+|---|---|---|
+| LOL eval15 | ~30+ | ~0.85+ |
+| LOL our485 | ~29+ | ~0.83+ |
+
+*(Results are indicative and may vary with hardware/random seed.)*
+
+---
+
+## Future Improvements
+
+> **Note:** The following are suggestions only — they have **not** been implemented in this repository.
+
+- **Perceptual / VGG loss** — adding a feature-space loss could further improve texture fidelity.
+- **Attention mechanisms** — channel attention (SE blocks) or spatial attention (CBAM) inside the bottleneck.
+- **Larger training sets** — training on MIT-Adobe FiveK or SICE would improve generalisation.
+- **Mixed-precision training** — `torch.cuda.amp` to reduce memory and speed up training.
+- **Export to ONNX / TorchScript** — for deployment on edge devices.
+- **Better SSIM implementation** — the current SSIM is per-sample rather than batched; a batched version would be faster.
+
+---
+
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request.
+
+---
+
+## License
+
+This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.

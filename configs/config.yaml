@@ -1,0 +1,57 @@
+# =============================================================================
+# config.yaml — OptiFusionNet Hyperparameters
+#
+# Edit the values below to customise the training run.
+# All paths are relative to the repository root unless absolute paths are given.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Dataset
+# Paired-image mode: provide both low_dir and high_dir.
+# Single-directory mode: set image_source_dir (low and target are synthesised
+#   from the same image at different resolutions).
+# ---------------------------------------------------------------------------
+low_dir:  "data/lol_dataset/our485/low"
+high_dir: "data/lol_dataset/our485/high"
+# image_source_dir: "data/isro_data"    # uncomment for single-dir mode
+
+# ---------------------------------------------------------------------------
+# Resolution schedule
+# Stage 1 (fast): fast_size × fast_size
+# Stages 2 & 3 (HQ): hq_size × hq_size
+# ---------------------------------------------------------------------------
+fast_size: 128
+hq_size:   256
+
+# ---------------------------------------------------------------------------
+# Training schedule
+# ---------------------------------------------------------------------------
+fast_adam_epochs: 6     # Stage 1 — Adam pretrain
+hq_adam_epochs:   20    # Stage 2 — Adam HQ training
+sgd_epochs:       8     # Stage 3 — SGD fine-tune
+batch_size_fast:  12    # Batch size for 128×128 stage
+batch_size_hq:    8     # Batch size for 256×256 stages
+
+# ---------------------------------------------------------------------------
+# Meta-optimisation (PSO + ACO)
+# Set use_meta_opt: false to skip and use the fallback values below.
+# Fallback if disabled: lr=1e-4, momentum=0.9, weight_decay=1e-4
+# ---------------------------------------------------------------------------
+use_meta_opt:    true
+meta_subset:     300    # Number of images to use during meta-opt
+pso_iters:       5      # PSO iterations
+pso_particles:   6      # PSO swarm size
+pso_eval_epochs: 1      # Training epochs per PSO fitness evaluation
+aco_iters:       3      # ACO iterations
+aco_ants:        6      # ACO ant count
+
+# ---------------------------------------------------------------------------
+# Device & reproducibility
+# ---------------------------------------------------------------------------
+seed: 42
+# device is auto-detected (cuda if available, else cpu)
+
+# ---------------------------------------------------------------------------
+# Checkpoint
+# ---------------------------------------------------------------------------
+save_path: "checkpoints/optifusionnet_multistage_best.pth"
