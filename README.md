@@ -93,7 +93,7 @@ Input (Low-light Image)
 |---|---|---|---|
 | 0 — Meta-opt | 128×128 (subset) | PSO + ACO | Find optimal lr / momentum / weight decay |
 | 1 — Fast Pretrain | 128×128 | Adam | Quick convergence from scratch |
-| 2 — HQ Adam | 256×256 | Adam (halved lr) | High-quality feature learning |
+| 2 — HQ Adam | 256×256 | Adam | High-quality feature learning |
 | 3 — SGD Fine-tune | 256×256 | SGD (momentum) | Final polishing with meta-opt momentum |
 
 ---
@@ -152,7 +152,6 @@ OptiFusionNet has been evaluated on:
 - **LOL Dataset** — paired low/high-light images (`eval15` split for quick experiments, `our485` split for full training).
 - **Custom ISRO PSR images** — unpaired dark images from planetary surface data.
 
-See [`data/README.md`](data/README.md) for download links and the expected directory layout.
 
 Update `configs/config.yaml` (or the `CONFIG` dict in the notebook) to point to your local dataset paths before training.
 
